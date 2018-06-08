@@ -1,10 +1,10 @@
 import React, { Component } from 'react';
-import './App.css';
 
 const createProxy = InitialComponent => {
-  let CurrentComponent = null;
   let ProxyComponent = null;
 
+  // Map instance properties
+  // e.g. props, context, state, refs
   const instantiate = (Component, context, params) => {
     const instance = new Component(...params);
     Object.keys(instance).forEach(key => {
@@ -14,26 +14,25 @@ const createProxy = InitialComponent => {
 
   const update = NextComponent => {
     let nextPrototype = NextComponent.prototype;
-    // let proxyPrototype = Object.create(NextComponent.prototype);
 
-    // CurrentComponent = NextComponent;
-    ProxyComponent = function(...args) {
-      instantiate(NextComponent, this, args);
-    };
+    // Map prototype methods
+    // e.g. handleClick, render
+    Object.getOwnPropertyNames(nextPrototype).forEach(key => {
+      ProxyComponent.prototype[key] = function(...args) {
+        return nextPrototype[key].apply(this, args);
+      };
+    });
 
-    // Object.getOwnPropertyNames(nextPrototype).forEach(key => {
-    // proxyPrototype[key] = function(...args) {
-    // return CurrentComponent.prototype[key].apply(this, args);
-    // };
-    // });
-
-    ProxyComponent.prototype = Object.create(NextComponent.prototype);
-    window.ProxyComponent = ProxyComponent;
-    // ProxyComponent.prototype.constructor = NextComponent;
+    // Setup prototype chain
+    ProxyComponent.prototype.__proto__ = nextPrototype;
   };
 
   const get = () => ProxyComponent;
 
+  // Map properties, methods, prototype for the InitialComponent
+  ProxyComponent = function(...args) {
+    instantiate(InitialComponent, this, args);
+  };
   update(InitialComponent);
 
   return {
@@ -48,7 +47,6 @@ class Counter1 extends Component {
   };
 
   handleClick() {
-    console.log('Counter1');
     this.setState(({ count }) => ({
       count: ++count,
     }));
@@ -56,9 +54,13 @@ class Counter1 extends Component {
 
   render() {
     return (
-      <div>
-        <h1>{this.state.count}</h1>
-        <button onClick={this.handleClick.bind(this)}>Increare 1</button>
+      <div style={styles.counter}>
+        <h1 style={styles.header}>{this.state.count}</h1>
+        <button
+          onClick={this.handleClick.bind(this)}
+          style={{ ...styles.button, background: 'cyan' }}>
+          Increase 1
+        </button>
       </div>
     );
   }
@@ -70,7 +72,6 @@ class Counter3 extends Component {
   };
 
   handleClick() {
-    console.log('Counter3');
     this.setState(({ count }) => ({
       count: count + 3,
     }));
@@ -78,42 +79,84 @@ class Counter3 extends Component {
 
   render() {
     return (
-      <div>
-        <h1>{this.state.count}</h1>
-        <button onClick={this.handleClick.bind(this)}>Increare 3</button>
+      <div style={styles.counter}>
+        <h1 style={styles.header}>{this.state.count}</h1>
+        <button
+          onClick={this.handleClick.bind(this)}
+          style={{ ...styles.button, background: 'yellow' }}>
+          Increase 3
+        </button>
       </div>
     );
   }
 }
 
+// Create proxy for Counter1
 const counterProxy = createProxy(Counter1);
 const Counter = counterProxy.get();
 
 class App extends Component {
-  componentDidMount() {
-    console.log('===');
-    console.log(window.instance);
-    console.log(Counter1.prototype);
-    console.log(Counter.prototype);
-    const counterInstance = new Counter1();
-    console.log(counterInstance);
-  }
-
   handleClick = () => {
-    // counterProxy.update(Counter3);
-    Counter.prototype.handleClick = () => {
-      console.log('lol');
-    };
+    // Proxy now point to Counter3
+    counterProxy.update(Counter3);
+    this.forceUpdate();
   };
 
   render() {
     return (
-      <div className="App">
-        <Counter ref={node => (window.instance = node)} />
-        <button onClick={this.handleClick}>Load new counter</button>
+      <div style={styles.app}>
+        <Counter />
+        <br />
+        <br />
+        <br />
+        <button onClick={this.handleClick} style={styles.button}>
+          Load new counter
+        </button>
       </div>
     );
   }
 }
+
+const styles = {
+  app: {
+    width: 320,
+    padding: 16,
+    margin: '0 auto',
+    fontFamily: 'Roboto, sans-serif',
+    fontSize: 16,
+    textAlign: 'center',
+    border: 'solid 2px #333',
+    borderRadius: 8,
+    boxShadow: '6px 6px 0 rgba(0,0,0,.2)',
+  },
+  counter: {
+    overflow: 'auto',
+    width: 240,
+    padding: 16,
+    margin: '0 auto',
+    textAlign: 'center',
+    color: 'white',
+    background: 'magenta',
+    borderRadius: 8,
+    boxShadow: '6px 6px 0 rgba(255,0,255,.2)',
+  },
+  header: {
+    marginTop: 0,
+    marginBottom: 16,
+    fontSize: '4em',
+    fontWeight: 500,
+  },
+  button: {
+    padding: '8px 16px',
+    margin: 0,
+    fontFamily: 'Roboto, sans-serif',
+    fontSize: 16,
+    background: 'white',
+    border: 'solid 2px #333',
+    borderRadius: 8,
+    outline: 'none',
+    cursor: 'pointer',
+  },
+};
 
 export default App;
